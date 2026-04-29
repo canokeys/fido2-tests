@@ -28,7 +28,11 @@ def test_get_info_algorithms(info):
 
 
 def test_mldsa65_make_credential_get_assertion(device):
-    mc_req = FidoRequest(key_params=[{"type": "public-key", "alg": MLDSA65}])
+    mc_req = FidoRequest(
+        rp={"id": "example.org", "name": "rp"},
+        user={"id": b"\x01", "name": "u", "displayName": "u"},
+        key_params=[{"type": "public-key", "alg": MLDSA65}],
+    )
     try:
         mc_res = device.sendMC(*mc_req.toMC())
     except Exception as e:
