@@ -1,5 +1,6 @@
 import pytest
 from binascii import hexlify
+from pqcrypto.sign import ml_dsa_65
 
 from tests.utils import FidoRequest
 
@@ -20,6 +21,17 @@ def _debug_dump(credential_data, ga_res):
     print("public_key_alg", credential_data.public_key[COSE_ALG_LABEL])
     print("public_key_kty", credential_data.public_key[COSE_KTY_LABEL])
     print("public_key_len", len(credential_data.public_key[COSE_AKP_PUB_LABEL]))
+
+
+def _verify_assertion_signature(credential_data, ga_res):
+    signed_message = bytes(ga_res.auth_data) + ga_res.request.cdh
+    public_key = credential_data.public_key[COSE_AKP_PUB_LABEL]
+
+    assert ml_dsa_65.verify(public_key, signed_message, ga_res.signature)
+
+    tampered_message = bytearray(signed_message)
+    tampered_message[-1] ^= 0x01
+    assert not ml_dsa_65.verify(public_key, bytes(tampered_message), ga_res.signature)
 
 
 def test_get_info_algorithms(info):
@@ -61,6 +73,7 @@ def test_mldsa65_make_credential_get_assertion(device):
         assert ga_res.credential is not None
         assert ga_res.credential["id"] == credential_data.credential_id
         assert len(ga_res.signature) == MLDSA_SIG_BYTES
+        _verify_assertion_signature(credential_data, ga_res)
     except Exception:
         _debug_dump(credential_data, ga_res)
         raise
