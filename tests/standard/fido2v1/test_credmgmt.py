@@ -286,7 +286,9 @@ class TestCredentialManagement(object):
     )
     def test_interleaved_add_delete(self, device, PinToken, CredMgmt):
         _restore_random_state_from_env()
+        token_seed_b64 = ensure_token_seed()
         print("INTERLEAVED_RANDOM_STATE_B64:", _encode_random_state())
+        print("INTERLEAVED_TOKEN_SEED_B64:", token_seed_b64)
         RPs = [{"id": "new_rp1.com"}, {"id": "new_rp2.com"}, {"id": "new_rp3.com"}]
         reg = None
         regs = {}
@@ -686,4 +688,3 @@ class TestCredentialManagement(object):
         with pytest.raises(CtapError) as e:
             cmd(credMgmt)
         assert e.value.code == CtapError.ERR.PIN_BLOCKED
-
