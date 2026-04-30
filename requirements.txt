@@ -5,4 +5,5 @@ pytest
 pytest-ordering
 pytest-rerunfailures
 pytest-timeout
+pqcrypto
 seedweed >= 1.0rc7
