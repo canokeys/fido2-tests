@@ -1,4 +1,5 @@
 import math
+import os
 import random
 import secrets
 import sys
@@ -15,6 +16,17 @@ else:
     from .vendor.solo.utils import DeviceSelectCredential
 
 name_list = open("data/first-names.txt").readlines()
+
+
+_deterministic_seed = os.environ.get("CANOKEY_TEST_SEED")
+if _deterministic_seed is not None:
+    random.seed(_deterministic_seed)
+
+
+def _token_bytes(length):
+    if _deterministic_seed is None:
+        return secrets.token_bytes(length)
+    return random.randbytes(length)
 
 
 def shannon_entropy(data):
@@ -45,7 +57,7 @@ def generate_rp():
 def generate_user():
     # https://www.w3.org/TR/webauthn/#user-handle
     user_id_length = random.randint(1, 64)
-    user_id = secrets.token_bytes(user_id_length)
+    user_id = _token_bytes(user_id_length)
 
     # https://www.w3.org/TR/webauthn/#dictionary-pkcredentialentity
     name = " ".join(random.choice(name_list).strip() for i in range(0, 3))
@@ -66,7 +78,7 @@ def generate_user_maximum():
 
     # https://www.w3.org/TR/webauthn/#user-handle
     user_id_length = 64
-    user_id = secrets.token_bytes(user_id_length)
+    user_id = _token_bytes(user_id_length)
 
     # https://www.w3.org/TR/webauthn/#dictionary-pkcredentialentity
     name = " ".join(random.choice(name_list).strip() for i in range(0, 30))
@@ -84,7 +96,7 @@ def generate_user_maximum():
 
 
 def generate_challenge():
-    return secrets.token_bytes(32)
+    return _token_bytes(32)
 
 
 def get_key_params():
