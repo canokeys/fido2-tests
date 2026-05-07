@@ -1,4 +1,6 @@
 import math
+import base64
+import os
 import random
 import secrets
 import sys
@@ -15,6 +17,50 @@ else:
     from .vendor.solo.utils import DeviceSelectCredential
 
 name_list = open("data/first-names.txt").readlines()
+
+
+_deterministic_seed = os.environ.get("CANOKEY_TEST_SEED")
+if _deterministic_seed is not None:
+    random.seed(_deterministic_seed)
+
+_token_rng = None
+
+
+def _decode_token_seed(seed_b64):
+    return base64.b64decode(seed_b64.encode("ascii"))
+
+
+def _encode_token_seed(seed_bytes):
+    return base64.b64encode(seed_bytes).decode("ascii")
+
+
+def set_token_seed(seed_b64):
+    global _token_rng
+    seed_bytes = _decode_token_seed(seed_b64)
+    _token_rng = random.Random(int.from_bytes(seed_bytes, "big"))
+
+
+def ensure_token_seed():
+    seed_b64 = os.environ.get("CANOKEY_TEST_TOKEN_SEED_B64")
+    if seed_b64:
+        set_token_seed(seed_b64)
+        return seed_b64
+    seed_bytes = secrets.token_bytes(32)
+    seed_b64 = _encode_token_seed(seed_bytes)
+    set_token_seed(seed_b64)
+    return seed_b64
+
+
+if os.environ.get("CANOKEY_TEST_TOKEN_SEED_B64"):
+    set_token_seed(os.environ["CANOKEY_TEST_TOKEN_SEED_B64"])
+
+
+def _token_bytes(length):
+    if _token_rng is not None:
+        return _token_rng.randbytes(length)
+    if _deterministic_seed is None:
+        return secrets.token_bytes(length)
+    return random.randbytes(length)
 
 
 def shannon_entropy(data):
@@ -45,7 +91,7 @@ def generate_rp():
 def generate_user():
     # https://www.w3.org/TR/webauthn/#user-handle
     user_id_length = random.randint(1, 64)
-    user_id = secrets.token_bytes(user_id_length)
+    user_id = _token_bytes(user_id_length)
 
     # https://www.w3.org/TR/webauthn/#dictionary-pkcredentialentity
     name = " ".join(random.choice(name_list).strip() for i in range(0, 3))
@@ -66,7 +112,7 @@ def generate_user_maximum():
 
     # https://www.w3.org/TR/webauthn/#user-handle
     user_id_length = 64
-    user_id = secrets.token_bytes(user_id_length)
+    user_id = _token_bytes(user_id_length)
 
     # https://www.w3.org/TR/webauthn/#dictionary-pkcredentialentity
     name = " ".join(random.choice(name_list).strip() for i in range(0, 30))
@@ -84,7 +130,7 @@ def generate_user_maximum():
 
 
 def generate_challenge():
-    return secrets.token_bytes(32)
+    return _token_bytes(32)
 
 
 def get_key_params():

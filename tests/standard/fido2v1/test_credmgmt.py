@@ -1,3 +1,6 @@
+import base64
+import os
+import pickle
 import pytest
 import time
 import random
@@ -10,6 +13,17 @@ from tests.utils import *
 from binascii import hexlify
 
 PIN = "123456"
+
+
+def _encode_random_state():
+    return base64.b64encode(pickle.dumps(random.getstate())).decode("ascii")
+
+
+def _restore_random_state_from_env():
+    state_b64 = os.environ.get("CANOKEY_TEST_RANDOM_STATE_B64")
+    if state_b64:
+        random.setstate(pickle.loads(base64.b64decode(state_b64)))
+        print("RESTORED_RANDOM_STATE_B64:", state_b64)
 
 
 @pytest.fixture(params=[PIN], scope = 'function')
@@ -271,6 +285,10 @@ class TestCredentialManagement(object):
         reason="Takes too much time on real hardware",
     )
     def test_interleaved_add_delete(self, device, PinToken, CredMgmt):
+        _restore_random_state_from_env()
+        token_seed_b64 = ensure_token_seed()
+        print("INTERLEAVED_RANDOM_STATE_B64:", _encode_random_state())
+        print("INTERLEAVED_TOKEN_SEED_B64:", token_seed_b64)
         RPs = [{"id": "new_rp1.com"}, {"id": "new_rp2.com"}, {"id": "new_rp3.com"}]
         reg = None
         regs = {}
@@ -670,5 +688,3 @@ class TestCredentialManagement(object):
         with pytest.raises(CtapError) as e:
             cmd(credMgmt)
         assert e.value.code == CtapError.ERR.PIN_BLOCKED
-
-

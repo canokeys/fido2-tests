@@ -4,7 +4,7 @@ from tests.utils import *
 
 def test_get_info_algorithms(info):
     print(info.algorithms)
-    assert {'alg': -48, 'type': 'public-key'} in info.algorithms
+    assert {'alg': -54, 'type': 'public-key'} in info.algorithms
 
 def test_sm2(device):
     mc_req = FidoRequest(
