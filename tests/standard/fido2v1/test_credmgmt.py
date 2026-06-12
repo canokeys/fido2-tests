@@ -291,6 +291,7 @@ class TestCredentialManagement(object):
         print("INTERLEAVED_TOKEN_SEED_B64:", token_seed_b64)
         RPs = [{"id": "new_rp1.com"}, {"id": "new_rp2.com"}, {"id": "new_rp3.com"}]
         reg = None
+        user_keys = {}
         regs = {}
         for op_num in range(1000):
             r = random.randint(1, 100)
@@ -304,8 +305,17 @@ class TestCredentialManagement(object):
                 )
                 try:
                     reg = device.sendMC(*req.toMC())
-                    regs[reg.auth_data.credential_data.credential_id] = req.user['id']
-                    print("CREATE: ", hexlify(reg.auth_data.credential_data.credential_id))
+                    cred_id = reg.auth_data.credential_data.credential_id
+                    rp_user = (bytes(reg.auth_data.rp_id_hash), bytes(req.user['id']))
+                    old_cred_id = user_keys.get(rp_user)
+                    if old_cred_id is not None:
+                        # WebAuthn requires a new resident credential for the
+                        # same RP and account ID to overwrite the old one.
+                        # Keep the test oracle aligned with that device state.
+                        regs.pop(old_cred_id, None)
+                    user_keys[rp_user] = cred_id
+                    regs[cred_id] = rp_user
+                    print("CREATE: ", hexlify(cred_id))
                 except CtapError as err:
                     assert err.code == CtapError.ERR.KEY_STORE_FULL
                     break
@@ -314,7 +324,9 @@ class TestCredentialManagement(object):
                 print("DELETE: ", hexlify(to_be_del))
                 cred = {"id": to_be_del, "type": "public-key"}
                 CredMgmt.pin_uv_token = _get_pin_token_with_CM_permission(device)
+                rp_user = regs[to_be_del]
                 CredMgmt.delete_cred(cred)
+                user_keys.pop(rp_user, None)
                 del regs[to_be_del]
 
         # Now the storage must be full
@@ -338,8 +350,10 @@ class TestCredentialManagement(object):
                 user_id = cred[6]["id"]
                 print("CHECK: ", hexlify(cred_id))
                 assert cred_id in regs
-                assert user_id == regs[cred_id]
+                rp_user = regs[cred_id]
+                assert user_id == rp_user[1]
                 del regs[cred_id]
+                user_keys.pop(rp_user, None)
 
         for cred_id in regs.keys():
             print("ERR! NOT RETURN: ", hexlify(cred_id))
